@@ -60,12 +60,17 @@ public class WordCount {
 
 			String[] words = line.split("\\s+");
 
+
 			// La ligne est vide : on s'arrête
 			if (Arrays.equals(words, emptyWords))
 				return;
 
-			for (String word : words)
-				context.write(new Text(word), one);
+            // On garde donc uniquement si > 4
+            for (String word : words) {
+                if (word.length() > 4) {
+                    context.write(new Text(word), one);
+                }
+            }
 		}
 	}
 
@@ -75,11 +80,15 @@ public class WordCount {
 				throws IOException, InterruptedException {
 			int sum = 0;
 
+
 			for (IntWritable val : values)
 				sum += val.get();
 
-			context.write(key, new IntWritable(sum));
-		}
+            // Afficher mots >= à 10
+            if (sum >= 10) {
+                context.write(key, new IntWritable(sum));
+            }
+        }
 	}
 
 	public static void main(String[] args) throws Exception {
