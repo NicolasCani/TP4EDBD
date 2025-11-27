@@ -6,6 +6,8 @@ import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -23,8 +25,9 @@ public class WordCount {
 	private static final String INPUT_PATH = "input-wordCount/";
 	private static final String OUTPUT_PATH = "output/wordCount-";
 	private static final Logger LOG = Logger.getLogger(WordCount.class.getName());
+    private static final Log log = LogFactory.getLog(WordCount.class);
 
-	/*
+    /*
 	 * Ce bloc initialise le logger 'LOG'. Celui-ci permet d'afficher des messages dans la console, le classique System.out.print() ne fonctionnant pas dans le contexte d'exécution normal de Hadoop.
 	 * En plus d'être affiché dans la console, les messages seront aussi présents dans le fichier 'out.log' qui apparaitra à la racine du projet.
 	 */
@@ -53,15 +56,16 @@ public class WordCount {
 		private final static String emptyWords[] = { "" };
 
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			String line = value.toString();
+			// Mettre en minuscule
+            String line = value.toString().toLowerCase();
+            //LOG.info(key.toString()+ " ; " + value.toString());
 
-			// Une méthode pour créer des messages de log
-			//LOG.info("MESSAGE INFO");
+            //Suppression de la ponctuation
+            line = line.replaceAll("\\p{Punct}", " ");
 
 			String[] words = line.split("\\s+");
 
-
-			// La ligne est vide : on s'arrête
+            // La ligne est vide : on s'arrête
 			if (Arrays.equals(words, emptyWords))
 				return;
 
