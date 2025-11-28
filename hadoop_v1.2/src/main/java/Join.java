@@ -109,9 +109,7 @@ public class Join {
             }
 
             for (String name : listCustomers) {
-                if (listOrders.isEmpty()) {
-                    //rien
-                } else {
+                if (!listOrders.isEmpty()) {
                     for (String comment : listOrders) {
                         context.write(new Text(name), new Text(comment));
                     }
