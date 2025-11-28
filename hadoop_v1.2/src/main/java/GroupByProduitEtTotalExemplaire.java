@@ -1,12 +1,13 @@
 import java.io.IOException;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -17,9 +18,9 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class GroupByDateCategory {
+public class GroupByProduitEtTotalExemplaire {
     private static final String INPUT_PATH = "input-groupBy/";
-    private static final String OUTPUT_PATH = "output/groupByDateCategory/-";
+    private static final String OUTPUT_PATH = "output/groupByProduitDistincs/-";
     private static final Logger LOG = Logger.getLogger(GroupBy.class.getName());
 
     static {
@@ -34,11 +35,9 @@ public class GroupByDateCategory {
         }
     }
 
-    public static class Map extends Mapper<LongWritable, Text, Text, DoubleWritable> {
-
-        private final static DoubleWritable salesWritable = new DoubleWritable();
-        private final Text compositeKey = new Text();
-
+    public static class Map extends Mapper<LongWritable, Text, Text, Text> {
+        private final Text orderIdKey = new Text();
+        private final Text compositeValue = new Text();
 
         @Override
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
@@ -52,40 +51,56 @@ public class GroupByDateCategory {
             //Split en column
             String[] columns = line.split(",");
 
-            //Get les column important
-            String orderDate = columns[2].trim();
-            String category = columns[13].trim();
-            String salesStr = columns[17].trim();
+            try{
+                String orderId = columns[1].trim();
+                String productId = columns[13].trim();
+                String quantity = columns[18].trim();
 
-            try {
-                double sales = Double.parseDouble(salesStr);
+                orderIdKey.set(orderId);
 
-                compositeKey.set(category + " - " + orderDate);
-                salesWritable.set(sales);
+                compositeValue.set(productId + ";" + quantity);
 
-                context.write(compositeKey, salesWritable);
-
-            } catch (NumberFormatException e) {
-                LOG.warning("Erreur" + e.getMessage());
+                context.write(orderIdKey, compositeValue);
+            } catch (Exception e){
+                LOG.warning(e.getMessage());
             }
 
 
         }
     }
 
-    public static class Reduce extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
+    public static class Reduce extends Reducer<Text, Text, Text, Text> {
 
         @Override
-        public void reduce(Text key, Iterable<DoubleWritable> values, Context context)
+        public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
 
-            double sum = 0;
+            Set<String> distinctProducts = new HashSet<>();
 
+            double totalQuantity = 0;
 
-            for (DoubleWritable val : values)
-                sum += val.get();
+            for (Text val : values) {
+                String[] parts = val.toString().split(";");
 
-            context.write(key, new DoubleWritable(sum));
+                if (parts.length == 2) {
+                    String pId = parts[0];
+                    String qtyStr = parts[1];
+
+                    distinctProducts.add(pId); //on add que pID
+
+                    try {
+                        totalQuantity += Double.parseDouble(qtyStr); //sum des quantite
+                    } catch (NumberFormatException e) {
+                        LOG.warning("erreur : " + qtyStr);
+                    }
+                }
+            }
+
+            int countDistinct = distinctProducts.size();
+
+            String result = "NbProduits:" + countDistinct + " QteTotale:" + totalQuantity;
+
+            context.write(key, new Text(result));
         }
     }
 
@@ -100,7 +115,8 @@ public class GroupByDateCategory {
         job.setMapperClass(Map.class);
         job.setReducerClass(Reduce.class);
 
-        job.setOutputValueClass(DoubleWritable.class);
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(Text.class); //Text pas double
 
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);

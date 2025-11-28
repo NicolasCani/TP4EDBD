@@ -80,13 +80,13 @@ public class GroupByDateState {
         public void reduce(Text key, Iterable<DoubleWritable> values, Context context)
                 throws IOException, InterruptedException {
 
-            double sum = 0;
+            double totalSales = 0.0;
 
+            for (DoubleWritable val : values) {
+                totalSales += val.get();
+            }
 
-            for (DoubleWritable val : values)
-                sum += val.get();
-
-            context.write(key, new DoubleWritable(sum));
+            context.write(key, new DoubleWritable(totalSales));
         }
     }
 
